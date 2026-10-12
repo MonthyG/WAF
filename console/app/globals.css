@@ -796,3 +796,86 @@ footer span {
     font-size: 33px;
   }
 }
+.analytics-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.analytics-controls select {
+  min-width: 145px;
+  font-size: 12px;
+}
+.analytics-filters {
+  display: flex;
+  gap: 15px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--line);
+  align-items: end;
+}
+.analytics-filters label {
+  margin: 0;
+  flex: 1;
+}
+.analytics-filters button {
+  margin-bottom: 1px;
+}
+.traffic-totals {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 25px;
+  gap: 20px;
+}
+.traffic-totals span {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.traffic-totals strong {
+  font-size: 27px;
+  font-weight: 500;
+  display: block;
+  margin-top: 8px;
+}
+.traffic-totals small {
+  font-size: 12px;
+}
+.traffic-chart {
+  padding: 10px 25px;
+}
+.traffic-chart svg {
+  width: 100%;
+  height: auto;
+}
+.chart-legend {
+  display: flex;
+  gap: 20px;
+  font-size: 11px;
+  color: #399879;
+  margin-bottom: 15px;
+}
+.chart-legend span + span {
+  color: #b67e61;
+}
+.chart-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+@media (max-width: 750px) {
+  .analytics-filters {
+    flex-wrap: wrap;
+  }
+  .analytics-filters label {
+    min-width: 130px;
+  }
+  .traffic-totals {
+    grid-template-columns: 1fr 1fr;
+  }
+  .analytics-controls {
+    width: 100%;
+  }
+  .traffic-chart {
+    padding: 10px 15px;
+  }
+}

@@ -202,3 +202,16 @@ export const acmeAccounts = pgTable(
   },
   (t) => [uniqueIndex('waf_acme_account_unique').on(t.directory, t.email)],
 );
+
+// Preserve routing provenance after site deletion so delayed telemetry can be
+// attributed without trusting a node's claimed tenant or billing identity.
+export const siteNodeHistory = pgTable(
+  'waf_site_node_history',
+  {
+    ...meta(),
+    ...tenant(),
+    siteId: uuid('site_id').notNull(),
+    nodeId: uuid('node_id').notNull(),
+  },
+  (t) => [uniqueIndex('waf_site_node_history_unique').on(t.siteId, t.nodeId)],
+);

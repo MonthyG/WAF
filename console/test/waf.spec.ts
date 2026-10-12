@@ -66,10 +66,25 @@ test('protect a domain, enforce its policy, manage rules, and isolate sessions',
   await expect(page.locator('.rule-spec')).toContainText('198.51.100.0/24');
   await page.getByRole('button', { name: 'Disable', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Enable', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Attack log', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Analytics is not available yet' })).toBeVisible();
   const sites = await page.request.get('/api/waf/sites');
   const id = (await sites.json()).sites[0].id;
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`/api/waf/sites/${id}/events`);
+        return (await response.json()).events?.length ?? 0;
+      },
+      { timeout: 15000 },
+    )
+    .toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Attack log', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Exclude for this path' }).first()).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'Exclude for this path' }).first().click();
+  await expect(page.getByRole('status')).toContainText('Exclusion saved');
+  await page.getByRole('button', { name: 'Metrics', exact: true }).click();
+  await expect(page.locator('.traffic-totals')).toContainText('Requests');
+  await expect(page.locator('.traffic-totals strong').first()).not.toHaveText('0');
   const other = await browser.newContext();
   const otherPage = await other.newPage();
   await otherPage.goto('http://127.0.0.1:19900');
@@ -127,7 +142,8 @@ test('protect a domain, enforce its policy, manage rules, and isolate sessions',
         csrf_rejected: true,
         http_only_session: true,
         mobile_no_overflow: true,
-        analytics_unavailable_explicit: true,
+        real_analytics_verified: true,
+        event_exclusion_verified: true,
         public_domain_tested: false,
       },
       null,

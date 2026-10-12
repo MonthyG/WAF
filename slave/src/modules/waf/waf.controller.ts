@@ -1,3 +1,5 @@
+import { eventsQuery, rangeQuery, eventID } from './analytics/analytics.service.js';
+import { z } from 'zod';
 import { Router, type Request, type Response, type RequestHandler } from 'express';
 import { adminOnly } from './auth/keystone.middleware.js';
 import { WafService } from './waf.service.js';
@@ -146,29 +148,59 @@ export function wafRouter(s: WafService) {
     adminOnly,
     handle(async (q, p) => p.status(202).json(await s.drainNode(q.ctx, id(q)))),
   );
-  // These phase-6 endpoints are explicitly unavailable until ingestion exists.
-  // Never return fabricated traffic statistics or an apparently empty attack log.
-  for (const path of ['/sites/:id/events', '/sites/:id/metrics'])
-    r.get(
-      path,
-      handle(async (q) => {
-        await s.site(s.db, q.ctx, id(q));
-        throw new HttpError(
-          501,
-          'analytics_unavailable',
-          'Analytics ingestion is not implemented yet',
-        );
-      }),
-    );
+  const analytics = () => {
+    if (!s.options.analytics)
+      throw new HttpError(501, 'analytics_unavailable', 'Analytics is not configured');
+    return s.options.analytics;
+  };
+  r.get(
+    '/sites/:id/events',
+    handle(async (q, p) => {
+      await s.site(s.db, q.ctx, id(q));
+      p.json(await analytics().events(q.ctx.projectId, id(q), eventsQuery.parse(q.query)));
+    }),
+  );
+  r.get(
+    '/sites/:id/metrics',
+    handle(async (q, p) => {
+      await s.site(s.db, q.ctx, id(q));
+      p.json(await analytics().metrics(q.ctx.projectId, id(q), rangeQuery.parse(q.query)));
+    }),
+  );
+  r.get(
+    '/usage',
+    handle(async (q, p) =>
+      p.json(await analytics().usage(q.ctx.projectId, rangeQuery.parse(q.query))),
+    ),
+  );
   r.post(
     '/sites/:id/events/:eventId/exclude',
-    handle(async (q) => {
-      await s.site(s.db, q.ctx, id(q));
-      throw new HttpError(
-        501,
-        'analytics_unavailable',
-        'Event-based exclusions require analytics ingestion',
+    handle(async (q, p) => {
+      const site = await s.site(s.db, q.ctx, id(q));
+      const event = await analytics().event(
+        q.ctx.projectId,
+        site.id,
+        eventID.parse(q.params.eventId),
       );
+      const input = z
+        .object({
+          rule_ids: z.array(z.number().int().min(900000).max(999999)).min(1).max(100),
+          path_prefix: z.string().min(1).max(2047),
+        })
+        .strict()
+        .parse(q.body);
+      if (
+        input.rule_ids.some((rule) => !event.rule_ids.includes(rule)) ||
+        input.path_prefix !== event.path
+      )
+        throw new HttpError(422, 'invalid_exclusion', 'Select rules and the path from this event');
+      const rule = ruleInput.parse({
+        type: 'rule_exclusion',
+        spec: input,
+        priority: 100,
+        enabled: true,
+      });
+      p.status(201).json(await s.createRule(q.ctx, site.policyId, rule));
     }),
   );
   return r;

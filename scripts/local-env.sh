@@ -22,7 +22,9 @@ with open(path) as f:
 with open(path,'a') as f:
     if 'CONSOLE_SESSION_KEY' not in names:
         f.write('CONSOLE_SESSION_KEY='+base64.b64encode(secrets.token_bytes(32)).decode()+'\n')
-    for name,value in [('WAF_API_URL','http://127.0.0.1:9890'),('CONSOLE_ORIGIN','http://127.0.0.1:3000'),('CONSOLE_SECURE_COOKIES','false'),('REDIS_URL','redis://127.0.0.1:16379'),('NATS_URL','nats://127.0.0.1:14222')]:
+    if 'CLICKHOUSE_PASSWORD' not in names:
+        f.write('CLICKHOUSE_PASSWORD='+secrets.token_hex(24)+'\n')
+    for name,value in [('CLICKHOUSE_URL','http://127.0.0.1:18123'),('CLICKHOUSE_USER','waf'),('CLICKHOUSE_DATABASE','waf'),('WAF_API_URL','http://127.0.0.1:9890'),('CONSOLE_ORIGIN','http://127.0.0.1:3000'),('CONSOLE_SECURE_COOKIES','false'),('REDIS_URL','redis://127.0.0.1:16379'),('NATS_URL','nats://127.0.0.1:14222')]:
         if name not in names: f.write(name+'='+value+'\n')
 PYENV
 echo 'Local database and encryption settings are in .local/dev.env (not printed).'

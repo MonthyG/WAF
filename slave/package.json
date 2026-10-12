@@ -11,7 +11,9 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "openapi": "tsx src/openapi.ts",
     "worker": "tsx src/workers/main.ts",
-    "node:register": "tsx src/cli/register-node.ts"
+    "node:register": "tsx src/cli/register-node.ts",
+    "ingest": "tsx src/workers/ingest-main.ts",
+    "meter": "tsx src/cli/meter.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "7.3.4",

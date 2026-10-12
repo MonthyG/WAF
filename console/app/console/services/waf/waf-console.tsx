@@ -647,7 +647,7 @@ export default function WafConsole() {
                 />
               )}
               {(tab === 'Attack log' || tab === 'Metrics') && (
-                <Analytics siteId={selected.id} kind={tab} onError={fail} />
+                <Analytics key={tab + selected.id} siteId={selected.id} kind={tab} onError={fail} />
               )}
             </>
           )}
@@ -1078,6 +1078,29 @@ function CertificateEditor({
     </>
   );
 }
+type AttackEvent = {
+  event_id: string;
+  timestamp: string;
+  action: string;
+  method: string;
+  path: string;
+  client_ip: string;
+  rule_ids: number[];
+  status: number;
+};
+type Traffic = {
+  from: string;
+  to: string;
+  totals: {
+    requests: number;
+    blocked: number;
+    detected: number;
+    errors: number;
+    bytes_out: number;
+    average_duration_ms: number;
+  };
+  series: Array<{ minute: string; action: string; requests: number }>;
+};
 function Analytics({
   siteId,
   kind,
@@ -1087,33 +1110,325 @@ function Analytics({
   kind: string;
   onError: (error: unknown) => void;
 }) {
-  const [unavailable, setUnavailable] = useState(false),
-    [loading, setLoading] = useState(true);
-  useEffect(() => {
-    setLoading(true);
-    api(`sites/${siteId}/${kind === 'Metrics' ? 'metrics' : 'events'}`)
-      .then(() => setUnavailable(false))
-      .catch((e) => {
+  const [hours, setHours] = useState('24'),
+    [action, setAction] = useState(''),
+    [ip, setIP] = useState(''),
+    [rule, setRule] = useState('');
+  const [events, setEvents] = useState<AttackEvent[]>([]),
+    [cursor, setCursor] = useState<string | null>(null),
+    [traffic, setTraffic] = useState<Traffic | null>(null);
+  const [loading, setLoading] = useState(true),
+    [unavailable, setUnavailable] = useState(false),
+    [failed, setFailed] = useState(false),
+    [excluding, setExcluding] = useState(''),
+    [message, setMessage] = useState('');
+  const [range, setRange] = useState({ from: '', to: '' });
+  const load = useCallback(
+    async (more = false) => {
+      setLoading(true);
+      setFailed(false);
+      setMessage('');
+      const current = more
+        ? range
+        : {
+            from: new Date(Date.now() - Number(hours) * 3600000).toISOString(),
+            to: new Date().toISOString(),
+          };
+      if (!more) setRange(current);
+      const query = new URLSearchParams(current);
+      if (action) query.set('action', action);
+      if (ip) query.set('ip', ip);
+      if (rule) query.set('rule_id', rule);
+      if (more && cursor) query.set('cursor', cursor);
+      try {
+        const value = await api(
+          `sites/${siteId}/${kind === 'Metrics' ? 'metrics' : 'events'}?${query}`,
+        );
+        setUnavailable(false);
+        if (kind === 'Metrics') setTraffic(value);
+        else {
+          setEvents((previous) => (more ? [...previous, ...value.events] : value.events));
+          setCursor(value.next_cursor);
+        }
+      } catch (e) {
+        setFailed(true);
         if (e instanceof ApiError && e.status === 501) setUnavailable(true);
         else onError(e);
-      })
-      .finally(() => setLoading(false));
-  }, [siteId, kind, onError]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [siteId, kind, hours, action, ip, rule, range, cursor, onError],
+  );
+  useEffect(() => {
+    void load();
+  }, [siteId, kind, hours, action]);
+  async function exclude(event: AttackEvent) {
+    const ids = event.rule_ids.filter(
+      (id) => (id >= 900000 && id < 949000) || (id >= 950000 && id < 959000),
+    );
+    if (
+      !window.confirm(
+        `Exclude rules ${ids.join(', ')} for path prefix ${event.path}? This changes every site using this policy.`,
+      )
+    )
+      return;
+    setExcluding(event.event_id);
+    setMessage('');
+    try {
+      await api(`sites/${siteId}/events/${event.event_id}/exclude`, 'POST', {
+        rule_ids: ids,
+        path_prefix: event.path,
+      });
+      setMessage('Exclusion saved. Review it in Rules; the edge will apply the new revision.');
+    } catch (e) {
+      onError(e);
+    } finally {
+      setExcluding('');
+    }
+  }
+  const format = (n: number) => new Intl.NumberFormat().format(n);
   return (
-    <section className="panel">
-      <Empty
-        title={
-          loading
-            ? 'Loading…'
-            : unavailable
-              ? 'Analytics is not available yet'
-              : 'Analytics integration pending'
-        }
+    <>
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>{kind === 'Metrics' ? 'Traffic overview' : 'Attack log'}</h2>
+          <div className="analytics-controls">
+            <select
+              aria-label="Time range"
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+            >
+              <option value="1">Last hour</option>
+              <option value="24">Last 24 hours</option>
+              <option value="168">Last 7 days</option>
+            </select>
+            <button className="secondary" disabled={loading} onClick={() => load()}>
+              Refresh
+            </button>
+          </div>
+        </div>
+        {kind === 'Attack log' && (
+          <form
+            className="analytics-filters"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void load();
+            }}
+          >
+            <label>
+              Action
+              <select value={action} onChange={(e) => setAction(e.target.value)}>
+                <option value="">All actions</option>
+                <option value="blocked">Blocked</option>
+                <option value="detected">Detected</option>
+              </select>
+            </label>
+            <label>
+              Client IP
+              <input
+                value={ip}
+                onChange={(e) => setIP(e.target.value)}
+                placeholder="Any IP address"
+              />
+            </label>
+            <label>
+              Rule ID
+              <input
+                value={rule}
+                onChange={(e) => setRule(e.target.value)}
+                placeholder="Any rule"
+                inputMode="numeric"
+              />
+            </label>
+            <button className="secondary" disabled={loading}>
+              Apply filters
+            </button>
+          </form>
+        )}
+        {message && (
+          <p role="status" className="banner success">
+            {message}
+          </p>
+        )}
+        {loading ? (
+          <Empty title="Loading analytics…">Reading traffic from your WAF edge.</Empty>
+        ) : unavailable ? (
+          <Empty title="Analytics is not available yet">
+            Your cloud operator has not configured traffic collection. Your WAF rules remain active.
+          </Empty>
+        ) : failed ? (
+          <Empty title="Unable to load analytics">
+            The analytics service could not be reached. Retry to refresh the data.
+          </Empty>
+        ) : kind === 'Metrics' && traffic ? (
+          <>
+            <div className="traffic-totals">
+              <div>
+                <span>Requests</span>
+                <strong>{format(traffic.totals.requests)}</strong>
+              </div>
+              <div>
+                <span>Blocked</span>
+                <strong>
+                  {format(traffic.totals.blocked)}
+                  <small>
+                    {' '}
+                    {traffic.totals.requests
+                      ? ((traffic.totals.blocked / traffic.totals.requests) * 100).toFixed(2)
+                      : '0'}
+                    %
+                  </small>
+                </strong>
+              </div>
+              <div>
+                <span>Detected</span>
+                <strong>{format(traffic.totals.detected)}</strong>
+              </div>
+              <div>
+                <span>Average request time</span>
+                <strong>
+                  {traffic.totals.average_duration_ms.toFixed(1)}
+                  <small> ms</small>
+                </strong>
+              </div>
+            </div>
+            <TrafficChart traffic={traffic} />
+            <p className="pad muted">
+              Counts include completed inspected requests, with one-minute resolution. HTTP
+              redirects and certificate challenges are excluded. Collection is asynchronous; recent
+              requests may take a few seconds to appear.
+            </p>
+          </>
+        ) : kind === 'Attack log' && !events.length ? (
+          <Empty title="No recorded attacks in this period">
+            No matching security events were recorded for the selected filters.
+          </Empty>
+        ) : kind === 'Attack log' ? (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Request</th>
+                    <th>Client IP</th>
+                    <th>Rules</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {events.map((event) => (
+                    <tr key={event.event_id}>
+                      <td>{new Date(event.timestamp).toLocaleString()}</td>
+                      <td>
+                        <Status value={event.action} />
+                      </td>
+                      <td>
+                        <code>
+                          {event.method} {event.path}
+                        </code>
+                      </td>
+                      <td>{event.client_ip}</td>
+                      <td>
+                        <code>{event.rule_ids.join(', ')}</code>
+                      </td>
+                      <td>
+                        <button
+                          className="text-button"
+                          disabled={
+                            !!excluding ||
+                            !event.path ||
+                            event.path.length >= 2048 ||
+                            !event.rule_ids.some(
+                              (id) =>
+                                (id >= 900000 && id < 949000) || (id >= 950000 && id < 959000),
+                            )
+                          }
+                          onClick={() => exclude(event)}
+                        >
+                          {excluding === event.event_id ? 'Saving…' : 'Exclude for this path'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {cursor && (
+              <div className="pad">
+                <button className="secondary" disabled={loading} onClick={() => load(true)}>
+                  Load more events
+                </button>
+              </div>
+            )}
+          </>
+        ) : null}
+      </section>
+    </>
+  );
+}
+function TrafficChart({ traffic }: { traffic: Traffic }) {
+  const from = Date.parse(traffic.from),
+    to = Date.parse(traffic.to),
+    width = (to - from) / 60;
+  const bins = Array.from({ length: 60 }, (_, i) => ({
+    time: from + i * width,
+    total: 0,
+    blocked: 0,
+  }));
+  for (const row of traffic.series) {
+    const index = Math.max(0, Math.min(59, Math.floor((Date.parse(row.minute) - from) / width)));
+    bins[index].total += row.requests;
+    if (row.action === 'blocked') bins[index].blocked += row.requests;
+  }
+  const max = Math.max(1, ...bins.map((b) => b.total));
+  return (
+    <div className="traffic-chart">
+      <div className="chart-legend">
+        <span>● Requests</span>
+        <span>● Blocked</span>
+      </div>
+      <svg
+        viewBox="0 0 820 210"
+        role="img"
+        aria-label="Request and blocked request counts over the selected period"
       >
-        {unavailable
-          ? 'Attack logs and traffic charts are coming in a later release. Your configured WAF rules remain active.'
-          : 'This view will display traffic and attack data when the analytics service is connected.'}
-      </Empty>
-    </section>
+        <line x1="40" y1="180" x2="800" y2="180" stroke="#dce6df" />
+        <text x="0" y="23" fill="#718577" fontSize="11">
+          {max}
+        </text>
+        <text x="15" y="180" fill="#718577" fontSize="11">
+          0
+        </text>
+        {bins.map((b, i) => (
+          <g key={i}>
+            <title>
+              {new Date(b.time).toLocaleString()}: {b.total} requests, {b.blocked} blocked
+            </title>
+            <rect
+              x={40 + i * 12.6}
+              y={180 - (b.total / max) * 155}
+              width="10"
+              height={(b.total / max) * 155}
+              rx="2"
+              fill="#399879"
+            />
+            <rect
+              x={40 + i * 12.6}
+              y={180 - (b.blocked / max) * 155}
+              width="10"
+              height={(b.blocked / max) * 155}
+              fill="#d79372"
+            />
+          </g>
+        ))}
+      </svg>
+      <div className="chart-axis">
+        <span>{new Date(from).toLocaleString()}</span>
+        <span>{new Date(to).toLocaleString()}</span>
+      </div>
+    </div>
   );
 }

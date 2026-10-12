@@ -420,6 +420,17 @@ export async function startWorker(db: DB, o: WorkerOptions) {
             await tx
               .insert(s.siteNodes)
               .values(available.map((n) => ({ siteId: site.id, nodeId: n.id })));
+            await tx
+              .insert(s.siteNodeHistory)
+              .values(
+                available.map((node) => ({
+                  siteId: site.id,
+                  nodeId: node.id,
+                  projectId: site.projectId,
+                  regionId: site.regionId,
+                })),
+              )
+              .onConflictDoNothing();
             assigned = available.map((node) => ({ node }));
             await tx
               .insert(s.bundles)

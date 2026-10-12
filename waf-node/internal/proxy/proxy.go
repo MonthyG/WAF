@@ -253,7 +253,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			observation := Observation{EventID: tx.ID(), SiteID: p.cfg.SiteID, Timestamp: started.UTC(), Action: action, Method: r.Method, RuleIDs: eventRuleIDs, Status: status, BytesOut: captured.bytes, DurationMS: float64(time.Since(started)) / float64(time.Millisecond)}
+			observation := Observation{EventID: tx.ID(), SiteID: p.cfg.SiteID, Timestamp: started.UTC(), Action: action, Method: r.Method[:min(len(r.Method), 32)], RuleIDs: eventRuleIDs, Status: status, BytesOut: captured.bytes, DurationMS: float64(time.Since(started)) / float64(time.Millisecond)}
 			if len(eventRuleIDs) > 0 {
 				observation.Path = r.URL.EscapedPath()
 				if len(observation.Path) > 2048 {

@@ -1,3 +1,5 @@
+import { clickHouseFromEnv } from './modules/waf/analytics/clickhouse.js';
+import { AnalyticsService } from './modules/waf/analytics/analytics.service.js';
 import { resolveTxt } from 'node:dns/promises';
 import { createApp } from './app.js';
 import { connect } from './db/index.js';
@@ -13,8 +15,12 @@ function required(name: string) {
 const key = Buffer.from(required('WAF_MASTER_KEY'), 'base64');
 if (key.length !== 32) throw new Error('WAF_MASTER_KEY must be a base64-encoded 32-byte key');
 const conn = connect(required('DATABASE_URL'));
+const clickhouse = clickHouseFromEnv();
 const service = new WafService(conn.db, {
   region: process.env.WAF_REGION ?? 'local-1',
+  analytics: clickhouse
+    ? new AnalyticsService(clickhouse, process.env.WAF_REGION ?? 'local-1')
+    : undefined,
   dnsTarget: required('WAF_DNS_TARGET'),
   masterKey: key,
   resolveTxt,

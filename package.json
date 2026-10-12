@@ -20,7 +20,9 @@
     "worker": "npm run worker --workspace slave",
     "node:register": "npm run node:register --workspace slave --",
     "dev:console": "npm run dev --workspace console",
-    "test:console": "npm run test:e2e --workspace console"
+    "test:console": "npm run test:e2e --workspace console",
+    "ingest": "npm run ingest --workspace slave",
+    "meter": "npm run meter --workspace slave --"
   },
   "devDependencies": {
     "prettier": "3.9.10"

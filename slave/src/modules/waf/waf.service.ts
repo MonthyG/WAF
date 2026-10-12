@@ -17,7 +17,9 @@ import type {
 } from './validation.js';
 
 type Exec = DB | Transaction;
+import type { AnalyticsService } from './analytics/analytics.service.js';
 export type ServiceOptions = {
+  analytics?: AnalyticsService;
   region: string;
   dnsTarget: string;
   masterKey: Buffer;
@@ -33,15 +35,13 @@ export class WafService {
     return ctx.projectId;
   }
   async audit(tx: Transaction, ctx: Context, action: string, id: string) {
-    await tx
-      .insert(s.audit)
-      .values({
-        projectId: ctx.projectId,
-        regionId: this.options.region,
-        userId: ctx.userId,
-        action,
-        resourceId: id,
-      });
+    await tx.insert(s.audit).values({
+      projectId: ctx.projectId,
+      regionId: this.options.region,
+      userId: ctx.userId,
+      action,
+      resourceId: id,
+    });
   }
   async site(tx: Exec, ctx: Context, id: string, lock = false) {
     const q = tx
@@ -159,16 +159,14 @@ export class WafService {
           verificationToken: 'ciw-' + randomBytes(24).toString('hex'),
         })
         .returning();
-      await tx
-        .insert(s.origins)
-        .values(
-          input.origins.map((o) => ({
-            ...camel<typeof s.origins.$inferInsert>(o),
-            siteId: site.id,
-            projectId: ctx.projectId,
-            regionId: this.options.region,
-          })),
-        );
+      await tx.insert(s.origins).values(
+        input.origins.map((o) => ({
+          ...camel<typeof s.origins.$inferInsert>(o),
+          siteId: site.id,
+          projectId: ctx.projectId,
+          regionId: this.options.region,
+        })),
+      );
       if (input.tls) {
         const [cert] = await tx
           .insert(s.certificates)

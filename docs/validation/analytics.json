@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-10-12T13:57:30.564Z",
+  "real_clickhouse": true,
+  "edge_requests": 205,
+  "recorded_requests": 205,
+  "count_difference_percent": 0,
+  "attack_events": 5,
+  "duplicate_batch_counted_once": true,
+  "tenant_isolation": true,
+  "event_exclusion_verified": true,
+  "metering_export_verified": true,
+  "retention_days": 30,
+  "ttl_expiration_verified": true
+}

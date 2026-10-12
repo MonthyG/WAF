@@ -1,3 +1,4 @@
+import { eventsQuery, rangeQuery, eventID } from './modules/waf/analytics/analytics.service.js';
 import { fileURLToPath } from 'node:url';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
@@ -34,6 +35,20 @@ export function openapi() {
     ['post', '/certificates', v.certificateInput, 202],
     ['get', '/certificates/{id}'],
     ['delete', '/certificates/{id}', undefined, 204],
+    ['get', '/sites/{id}/events'],
+    ['get', '/sites/{id}/metrics'],
+    [
+      'post',
+      '/sites/{id}/events/{eventId}/exclude',
+      z
+        .object({
+          rule_ids: z.array(z.number().int().min(900000).max(999999)).min(1).max(100),
+          path_prefix: z.string().min(1).max(2047),
+        })
+        .strict(),
+      201,
+    ],
+    ['get', '/usage'],
     ['get', '/nodes'],
     ['post', '/nodes/{id}/drain', undefined, 202],
   ];
@@ -41,13 +56,20 @@ export function openapi() {
     error: z.object({ code: z.string(), message: z.string(), details: z.unknown().optional() }),
   });
   for (const [method, path, body, status = 200] of routes) {
-    const params = Object.fromEntries([...path.matchAll(/\{(\w+)\}/g)].map((m) => [m[1], v.uuid]));
+    const params = Object.fromEntries(
+      [...path.matchAll(/\{(\w+)\}/g)].map((m) => [m[1], m[1] === 'eventId' ? eventID : v.uuid]),
+    );
     r.registerPath({
       method: method as 'get' | 'post' | 'patch' | 'delete',
       path,
       summary: method.toUpperCase() + ' ' + path,
       security: [{ KeystoneToken: [] }],
       request: {
+        ...(path.endsWith('/events')
+          ? { query: eventsQuery }
+          : path.endsWith('/metrics') || path === '/usage'
+            ? { query: rangeQuery }
+            : {}),
         ...(body
           ? { body: { required: true, content: { 'application/json': { schema: body } } } }
           : {}),
@@ -80,7 +102,7 @@ export function openapi() {
       title: 'CloudInside WAF API',
       version: '0.1.0',
       description:
-        'Phase 2 control-plane API. Tenant operations are always scoped to the token project, including administrator tokens; node operations require admin.',
+        'WAF control-plane, analytics and usage API. Tenant operations are always scoped to the token project, including administrator tokens; node operations require admin.',
     },
     servers: [{ url: '/v1/waf' }, { url: '/waf/v1' }],
   });

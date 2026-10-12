@@ -1,7 +1,7 @@
 {
-  "recorded_at": "2026-10-12T13:38:38.110Z",
+  "recorded_at": "2026-10-12T13:54:47.548Z",
   "browser": "Chromium",
-  "protect_site_ms": 3788,
+  "protect_site_ms": 3709,
   "real_api_and_edge": true,
   "dns_provider_simulated": true,
   "blocking_verified": true,
@@ -11,6 +11,7 @@
   "csrf_rejected": true,
   "http_only_session": true,
   "mobile_no_overflow": true,
-  "analytics_unavailable_explicit": true,
+  "real_analytics_verified": true,
+  "event_exclusion_verified": true,
   "public_domain_tested": false
 }

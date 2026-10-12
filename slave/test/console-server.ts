@@ -1,3 +1,8 @@
+import { ClickHouse } from '../src/modules/waf/analytics/clickhouse.js';
+import { AnalyticsService } from '../src/modules/waf/analytics/analytics.service.js';
+import { startIngest } from '../src/workers/waf-ingest.js';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 // Explicitly launched by Playwright only; never imported by the production API.
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -24,10 +29,19 @@ url.pathname = '/' + dbName;
 await migrateDatabase(url.toString());
 const conn = connect(url.toString());
 const containers: string[] = [];
-const container = (image: string, port: number, args: string[]) => {
+const container = (image: string, port: number, args: string[], env: string[] = []) => {
   const id = execFileSync(
     'docker',
-    ['run', '--rm', '-d', '-p', `127.0.0.1::${port}`, image, ...args],
+    [
+      'run',
+      '--rm',
+      '-d',
+      ...env.flatMap((v) => ['-e', v]),
+      '-p',
+      `127.0.0.1::${port}`,
+      image,
+      ...args,
+    ],
     { encoding: 'utf8' },
   ).trim();
   containers.push(id);
@@ -43,20 +57,37 @@ const redis = container(
   6379,
   [],
 );
+const chPassword = randomBytes(24).toString('hex');
+const chAddress = container(
+  'clickhouse/clickhouse-server:25.8@sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77',
+  8123,
+  [],
+  ['CLICKHOUSE_USER=waf', 'CLICKHOUSE_PASSWORD=' + chPassword],
+);
+const ch = new ClickHouse({ url: 'http://' + chAddress, username: 'waf', password: chPassword });
+for (let attempt = 0; attempt < 100; attempt++) {
+  try {
+    await ch.execute('SELECT 1', {}, undefined, true);
+    break;
+  } catch {
+    if (attempt === 99) throw new Error('ClickHouse did not start');
+    await new Promise((r) => setTimeout(r, 300));
+  }
+}
+const ingestion = await startIngest(conn.db, ch, { natsURL: 'nats://' + nats });
+const telemetryDirectory = await mkdtemp(resolve(tmpdir(), 'waf-console-telemetry-'));
 const nodeId = randomUUID(),
   projectId = randomUUID(),
   otherProject = randomUUID(),
   serviceToken = randomBytes(24).toString('hex');
-await conn.db
-  .insert(s.nodes)
-  .values({
-    id: nodeId,
-    regionId: 'local-1',
-    kind: 'edge',
-    publicIp: '127.0.0.1',
-    mgmtIp: '127.0.0.1',
-    version: 'test',
-  });
+await conn.db.insert(s.nodes).values({
+  id: nodeId,
+  regionId: 'local-1',
+  kind: 'edge',
+  publicIp: '127.0.0.1',
+  mgmtIp: '127.0.0.1',
+  version: 'test',
+});
 const worker = await startWorker(conn.db, {
   redisURL: 'redis://' + redis,
   natsURL: 'nats://' + nats,
@@ -67,6 +98,8 @@ const worker = await startWorker(conn.db, {
 const agent = spawn(
   resolve('../waf-node/bin/waf-agent'),
   [
+    '-state-dir',
+    telemetryDirectory,
     '-node-id',
     nodeId,
     '-nats',
@@ -119,6 +152,7 @@ identity.listen(19902, '127.0.0.1');
 await once(identity, 'listening');
 const service = new WafService(conn.db, {
   region: 'local-1',
+  analytics: new AnalyticsService(ch, 'local-1'),
   dnsTarget: 'edge.localhost',
   masterKey: randomBytes(32),
   resolveTxt: async (name) => txt.get(name) ?? [],
@@ -140,7 +174,9 @@ async function stop() {
   agent.kill('SIGTERM');
   await Promise.race([once(agent, 'exit'), new Promise((r) => setTimeout(r, 2000))]);
   if (agent.exitCode === null) agent.kill('SIGKILL');
+  await ingestion.close();
   await worker.close();
+  await rm(telemetryDirectory, { recursive: true, force: true });
   await conn.close();
   for (const id of containers)
     try {

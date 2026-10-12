@@ -29,6 +29,20 @@
       "when": 1791791252128,
       "tag": "0003_lazy_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791812454269,
+      "tag": "0004_milky_gabe_jones",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791813375921,
+      "tag": "0005_backfill_site_node_history",
+      "breakpoints": true
     }
   ]
 }

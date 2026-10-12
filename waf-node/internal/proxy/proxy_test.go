@@ -420,3 +420,13 @@ func TestObservationIsBoundedAndOmitsRequestSecrets(t *testing.T) {
 		t.Fatalf("incorrect blocked observation: %+v", observation)
 	}
 }
+
+func TestLongMethodDoesNotPoisonTelemetryBatch(t *testing.T) {
+	p, server := fixture(t, testConfig("", "detect"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }), nil)
+	observations := make(chan Observation, 1)
+	p.Observe = func(o Observation) { observations <- o }
+	request(t, server, strings.Repeat("A", 100), "/", "", "")
+	if got := <-observations; len(got.Method) != 32 {
+		t.Fatalf("unbounded method: %d", len(got.Method))
+	}
+}

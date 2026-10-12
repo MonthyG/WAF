@@ -3,7 +3,7 @@ import { apiURL, readBody, token, validOrigin } from '../../../../lib/session';
 export const runtime = 'nodejs';
 const uuid = '[0-9a-fA-F-]{36}';
 const allowed = new RegExp(
-  `^(sites(?:/${uuid}(?:/verify|/origins(?:/${uuid})?|/metrics|/events(?:/${uuid}/exclude)?)?)?|policies(?:/${uuid}(?:/rules(?:/${uuid})?)?)?|certificates(?:/${uuid})?|nodes(?:/${uuid}/drain)?)$`,
+  `^(usage|sites(?:/${uuid}(?:/verify|/origins(?:/${uuid})?|/metrics|/events(?:/[A-Za-z0-9_-]{1,128}/exclude)?)?)?|policies(?:/${uuid}(?:/rules(?:/${uuid})?)?)?|certificates(?:/${uuid})?|nodes(?:/${uuid}/drain)?)$`,
 );
 async function proxy(request: Request, context: { params: Promise<{ path: string[] }> }) {
   if (request.method !== 'GET' && !validOrigin(request))
