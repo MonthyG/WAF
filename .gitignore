@@ -8,3 +8,9 @@ slave/dist/
 .env
 .env.*
 !.env.example
+console/.next/
+*.tsbuildinfo
+console/test-results/
+console/playwright-report/
+*.pem
+*.key

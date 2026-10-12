@@ -4,17 +4,25 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "slave"
+    "slave",
+    "console"
   ],
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
-    "build": "npm run build --workspace slave",
-    "typecheck": "npm run typecheck --workspace slave",
+    "build": "npm run build --workspace slave && npm run build --workspace console",
+    "typecheck": "npm run typecheck --workspace slave && npm run typecheck --workspace console",
     "test": "npm run test --workspace slave",
     "dev:api": "npm run dev --workspace slave",
     "db:migrate": "npm run db:migrate --workspace slave",
-    "openapi": "npm run openapi --workspace slave"
+    "openapi": "npm run openapi --workspace slave",
+    "worker": "npm run worker --workspace slave",
+    "node:register": "npm run node:register --workspace slave --",
+    "dev:console": "npm run dev --workspace console",
+    "test:console": "npm run test:e2e --workspace console"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
   }
 }

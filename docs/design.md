@@ -411,3 +411,16 @@ waf-node/                               # new Go repo
 console/app/console/services/waf/       # UI pages
 console/app/api/waf/                    # route handlers → console-api
 ```
+
+## 18. Implementation checkpoint (2026-10-12)
+
+The user confirmed there are no existing `slave`, `console`, or `console-api` repositories. This repository therefore contains the new Go data plane, TypeScript control plane, and Next.js console as a monorepo. The original design above remains the target; the following records implementation differences and acceptance evidence.
+
+- The user authorized continuing control-plane development while retaining the Phase 1 performance target as an outstanding production requirement. The measured shared-cloud PL1 benchmark did not meet 3k requests/s/vCPU or the added-latency target. Do not treat local functional acceptance as a production performance claim.
+- Heartbeat and acknowledgment subjects include the node UUID (`waf.node.heartbeat.UUID`, `waf.node.ack.UUID`) so per-node NATS credentials can restrict publisher identity. Snapshot requests use `waf.config.snapshot.UUID`.
+- TLS private keys use AES-256-GCM at rest and RSA-OAEP-SHA256/AES-256-GCM envelopes for each node, authenticated to site and revision. Nodes are registered through an operator CLI with an RSA public key. Production NATS permission provisioning remains an operator task.
+- The ACME worker uses persistent encrypted account keys, waits for challenge revisions to reach assigned nodes, handles HTTP-01 before WAF/redirect, and checks hourly for renewal below 30 days. Local acceptance uses the official Pebble test CA with real one-hour certificates and real challenge validation; it does not skip CA or TLS checks. Public Let's Encrypt staging has not been tested.
+- The console is standalone because no existing portal was supplied. It uses encrypted HttpOnly project-token sessions and a same-origin server-side API proxy. Browser tests exercise real API/worker/edge services with test Keystone and simulated DNS publication. Public-domain usability acceptance still needs the staging environment.
+- Console site creation, DNS verification, origin management, policy editing, typed-rule creation/toggling/deletion, and certificate upload/attachment are implemented. Attack logs/charts and one-click event exclusion remain unavailable until Phase 6 ingestion. They display an explicit unavailable state rather than sample traffic.
+- Original and platform-adapted CRS test expectations remain distinct. Platform adjustments do not disable cases. Current distribution, ACME, and browser acceptance measurements are retained in `docs/validation/`.
+- Phase 6 metering/analytics, Phase 7 rate/geo/Neutron hardening, and Phase 8 dedicated provisioning remain outstanding. Real Keystone catalog registration, Nova/Neutron integration, and public DNS/CA validation require operator environment details.

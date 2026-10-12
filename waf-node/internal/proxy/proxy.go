@@ -33,6 +33,7 @@ type stateKey struct{}
 var errResponseBlocked = errors.New("response blocked by WAF")
 
 type Proxy struct {
+	Observe   func(Observation) // Configure before serving requests.
 	cfg       Config
 	waf       coraza.WAF
 	upstream  *httputil.ReverseProxy
@@ -114,7 +115,7 @@ func NewWithWAF(c Config, waf coraza.WAF, log *slog.Logger) (*Proxy, error) {
 			r.SetXForwarded()
 			r.Out.Header.Del("X-CloudInside-WAF-Event")
 			st := r.In.Context().Value(stateKey{}).(*requestState)
-			if len(st.tx.MatchedRules()) > 0 {
+			if len(alertMatches(st.tx)) > 0 {
 				r.Out.Header.Set("X-CloudInside-WAF-Event", st.tx.ID())
 			}
 			if c.InspectResponse {
@@ -193,6 +194,19 @@ func (p *Proxy) Close() error {
 	return nil
 }
 
+// Coraza includes nolog setup/control matches in MatchedRules. They are not
+// security detections and must not inflate attack counters or event headers.
+func alertMatches(tx types.Transaction) []types.MatchedRule {
+	var alerts []types.MatchedRule
+	for _, match := range tx.MatchedRules() {
+		if logging, ok := match.(interface{ Log() bool }); ok && !logging.Log() {
+			continue
+		}
+		alerts = append(alerts, match)
+	}
+	return alerts
+}
+
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	host := r.Host
 	if h, _, err := net.SplitHostPort(host); err == nil {
@@ -202,6 +216,9 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown protected site", http.StatusNotFound)
 		return
 	}
+	started := time.Now()
+	captured := &responseCapture{ResponseWriter: w}
+	w = captured
 	tx := p.waf.NewTransaction()
 	st := &requestState{tx: tx}
 	action := "allowed"
@@ -211,11 +228,12 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			action = "blocked"
 		} else if st.failed {
 			action = "error"
-		} else if action != "rejected" && len(tx.MatchedRules()) > 0 {
+		} else if action != "rejected" && len(alertMatches(tx)) > 0 {
 			action = "detected"
 		}
 		p.metrics.record(action)
-		if matches := tx.MatchedRules(); len(matches) > 0 {
+		var eventRuleIDs []int
+		if matches := alertMatches(tx); len(matches) > 0 {
 			ids := make([]int, 0, len(matches))
 			seen := map[int]bool{}
 			for _, m := range matches {
@@ -226,8 +244,24 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					p.metrics.hit(id)
 				}
 			}
+			eventRuleIDs = ids
 			// Do not record query strings, bodies, cookies, tokens, or matched data.
 			p.log.Info("waf_event", "event_id", tx.ID(), "site_id", p.cfg.SiteID, "action", action, "rule_ids", ids, "method", r.Method, "client_ip", clientIP(r.RemoteAddr))
+		}
+		if p.Observe != nil {
+			status := captured.status
+			if status == 0 {
+				status = http.StatusOK
+			}
+			observation := Observation{EventID: tx.ID(), SiteID: p.cfg.SiteID, Timestamp: started.UTC(), Action: action, Method: r.Method, RuleIDs: eventRuleIDs, Status: status, BytesOut: captured.bytes, DurationMS: float64(time.Since(started)) / float64(time.Millisecond)}
+			if len(eventRuleIDs) > 0 {
+				observation.Path = r.URL.EscapedPath()
+				if len(observation.Path) > 2048 {
+					observation.Path = observation.Path[:2048]
+				}
+				observation.ClientIP = clientIP(r.RemoteAddr)
+			}
+			p.Observe(observation)
 		}
 		if err := tx.Close(); err != nil {
 			p.log.Error("transaction cleanup failed", "event_id", tx.ID())
@@ -264,12 +298,12 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))
 	}
-	if len(tx.MatchedRules()) > 0 {
+	if len(alertMatches(tx)) > 0 {
 		w.Header().Set("X-CloudInside-WAF-Event", tx.ID())
 	}
-	started := time.Now()
+	upstreamStarted := time.Now()
 	p.upstream.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), stateKey{}, st)))
-	p.metrics.observe(time.Since(started).Seconds())
+	p.metrics.observe(time.Since(upstreamStarted).Seconds())
 }
 
 func inspectRequest(tx types.Transaction, r *http.Request, limit int64) (*types.Interruption, error) {

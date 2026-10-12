@@ -1,0 +1,11 @@
+node_modules
+.local
+console/.next
+console/test-results
+console/playwright-report
+slave/dist
+slave/src/db/migrations
+package-lock.json
+docs/design.md
+docs/openapi.json
+waf-node

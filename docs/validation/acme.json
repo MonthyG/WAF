@@ -1,0 +1,12 @@
+{
+  "recorded_at": "2026-10-12T13:37:57.866Z",
+  "ca": "Pebble",
+  "real_http01_validation": true,
+  "issuance_verified": true,
+  "renewal_verified": true,
+  "certificate_lifetime_seconds": 3600,
+  "renewal_with_https_redirect": true,
+  "tls_chain_verified": true,
+  "challenge_cleanup_verified": true,
+  "public_letsencrypt_staging_tested": false
+}

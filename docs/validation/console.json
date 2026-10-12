@@ -1,0 +1,16 @@
+{
+  "recorded_at": "2026-10-12T13:38:38.110Z",
+  "browser": "Chromium",
+  "protect_site_ms": 3788,
+  "real_api_and_edge": true,
+  "dns_provider_simulated": true,
+  "blocking_verified": true,
+  "policy_update_verified": true,
+  "rule_management_verified": true,
+  "cross_project_404": true,
+  "csrf_rejected": true,
+  "http_only_session": true,
+  "mobile_no_overflow": true,
+  "analytics_unavailable_explicit": true,
+  "public_domain_tested": false
+}

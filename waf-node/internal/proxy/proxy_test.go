@@ -367,3 +367,56 @@ func TestInspectionReadFailureDoesNotForward(t *testing.T) {
 		t.Fatalf("inspection error forwarded or accepted: %d %d", w.Code, reached.Load())
 	}
 }
+
+func TestBenignCRSSetupMatchesAreNotAttacks(t *testing.T) {
+	var logs bytes.Buffer
+	p, s := fixture(t, testConfig("", "detect"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `{"ok":true}`)
+	}), slog.New(slog.NewJSONHandler(&logs, nil)))
+	response, _ := request(t, s, "GET", "/products?category=books", "", "")
+	if response.StatusCode != 200 {
+		t.Fatal(response.StatusCode)
+	}
+	if response.Header.Get("X-WAF-Event-ID") != "" {
+		t.Fatal("benign request received attack event header")
+	}
+	if strings.Contains(logs.String(), "waf_event") {
+		t.Fatal("CRS setup rules were reported as security events")
+	}
+	metrics := httptest.NewRecorder()
+	p.ManagementHandler().ServeHTTP(metrics, httptest.NewRequest("GET", "/metrics", nil))
+	if !strings.Contains(metrics.Body.String(), `waf_requests_total{site="test",action="allowed"} 1`) {
+		t.Fatal("benign request counted as detection")
+	}
+	response, _ = request(t, s, "GET", "/?q="+url.QueryEscape("<script>alert(1)</script>"), "", "")
+	if response.StatusCode != 200 || !strings.Contains(logs.String(), `"action":"detected"`) {
+		t.Fatal("detect-mode attack event was lost")
+	}
+}
+
+func TestObservationIsBoundedAndOmitsRequestSecrets(t *testing.T) {
+	p, s := fixture(t, testConfig("", "block"), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "hello") }), nil)
+	observations := make(chan Observation, 2)
+	p.Observe = func(o Observation) { observations <- o }
+	response, _ := request(t, s, "GET", "/private?access_token=secret", "", "")
+	if response.StatusCode != 200 {
+		t.Fatal(response.StatusCode)
+	}
+	observation := <-observations
+	if observation.Action != "allowed" || observation.BytesOut != 5 || observation.Status != 200 || observation.Path != "" || observation.ClientIP != "" {
+		t.Fatalf("incorrect benign observation: %+v", observation)
+	}
+	response, _ = request(t, s, "GET", "/private?q="+url.QueryEscape("<script>alert(1)</script>")+"&access_token=secret", "", "")
+	if response.StatusCode != 403 {
+		t.Fatal(response.StatusCode)
+	}
+	observation = <-observations
+	data, _ := json.Marshal(observation)
+	if strings.Contains(string(data), "secret") || strings.Contains(string(data), "<script>") {
+		t.Fatal("observation leaked query data")
+	}
+	if observation.Action != "blocked" || observation.Status != 403 || observation.Path != "/private" || len(observation.RuleIDs) == 0 {
+		t.Fatalf("incorrect blocked observation: %+v", observation)
+	}
+}

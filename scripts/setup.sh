@@ -17,7 +17,10 @@ if [[ ! -x "$WAF_TOOLCHAIN_ROOT/go/bin/go" ]]; then
 fi
 [[ "$(go version)" == "go version go${version} linux/amd64" ]] || { echo 'Unexpected toolchain version; use a separate WAF_TOOLCHAIN_ROOT.' >&2; exit 1; }
 cd "$WAF_ROOT/waf-node"
-go mod download
+if ! go mod download; then
+  # Official VCS fallback retains go.sum/sumdb verification.
+  GOPROXY=direct go mod download
+fi
 go mod verify
 go build -mod=readonly -o bin/waf-proxy ./cmd/waf-proxy
 go build -mod=readonly -o bin/waf-origin ./cmd/waf-origin

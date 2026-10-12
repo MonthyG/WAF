@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -10,11 +11,13 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/MonthyG/WAF/waf-node/internal/agent"
+	"github.com/MonthyG/WAF/waf-node/internal/telemetry"
 	"github.com/nats-io/nats.go"
 )
 
@@ -30,6 +33,9 @@ func run() error {
 	credentials := flag.String("credentials", "", "NATS user credentials file")
 	listen := flag.String("listen", "127.0.0.1:8080", "traffic address")
 	management := flag.String("management", "127.0.0.1:9090", "loopback management address")
+	tlsListen := flag.String("tls-listen", "", "HTTPS address (requires node-key)")
+	nodeKey := flag.String("node-key", "", "RSA private key file for certificate delivery")
+	stateDir := flag.String("state-dir", "", "enable telemetry with a private durable spool directory")
 	flag.Parse()
 	if len(*id) != 36 || strings.ContainsAny(*id, " .>*\r\n") {
 		return fmt.Errorf("node-id must be a UUID")
@@ -59,9 +65,32 @@ func run() error {
 	defer nc.Close()
 	a := agent.New(*id, slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	defer a.Close()
+	var reporter *telemetry.Reporter
+	if *stateDir != "" {
+		reporter, err = telemetry.New(*id, filepath.Join(*stateDir, "telemetry"), nc)
+		if err != nil {
+			return err
+		}
+		defer reporter.Close()
+		a.Observer = reporter.Observe
+	}
+	if *nodeKey != "" {
+		data, err := os.ReadFile(*nodeKey)
+		if err != nil {
+			return err
+		}
+		a.PrivateKey, err = agent.ParseNodeKey(data)
+		clear(data)
+		if err != nil {
+			return err
+		}
+	}
+	if *tlsListen != "" && a.PrivateKey == nil {
+		return fmt.Errorf("tls-listen requires node-key")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	errs := make(chan error, 3)
+	errs := make(chan error, 4)
 	traffic, err := net.Listen("tcp", *listen)
 	if err != nil {
 		return err
@@ -73,7 +102,27 @@ func run() error {
 	}
 	defer admin.Close()
 	s := &http.Server{Handler: a, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 64 << 10}
-	m := &http.Server{Handler: a.ManagementHandler(), ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
+	managementHandler := a.ManagementHandler()
+	if reporter != nil {
+		original := managementHandler
+		managementHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			original.ServeHTTP(w, r)
+			if r.URL.Path == "/metrics" {
+				fmt.Fprint(w, reporter.Metrics())
+			}
+		})
+	}
+	m := &http.Server{Handler: managementHandler, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
+	var https *http.Server
+	if *tlsListen != "" {
+		listener, e := net.Listen("tcp", *tlsListen)
+		if e != nil {
+			return e
+		}
+		defer listener.Close()
+		https = &http.Server{Handler: a, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12, GetCertificate: a.GetCertificate}, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 64 << 10}
+		go func() { errs <- https.ServeTLS(listener, "", "") }()
+	}
 	go func() { errs <- a.Run(ctx, nc) }()
 	go func() { errs <- s.Serve(traffic) }()
 	go func() { errs <- m.Serve(admin) }()
@@ -87,6 +136,11 @@ func run() error {
 	defer cancel()
 	if e := s.Shutdown(shutdown); e != nil {
 		s.Close()
+	}
+	if https != nil {
+		if e := https.Shutdown(shutdown); e != nil {
+			https.Close()
+		}
 	}
 	if e := m.Shutdown(shutdown); e != nil {
 		m.Close()

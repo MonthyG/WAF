@@ -1,0 +1,1 @@
+ALTER TABLE "waf_nodes" ADD COLUMN "public_key_pem" text;

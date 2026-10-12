@@ -5,11 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc",
+    "build": "tsc && node -e \"require('node:fs').cpSync('src/db/migrations','dist/db/migrations',{recursive:true})\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:migrate": "tsx src/db/migrate.ts",
-    "openapi": "tsx src/openapi.ts"
+    "openapi": "tsx src/openapi.ts",
+    "worker": "tsx src/workers/main.ts",
+    "node:register": "tsx src/cli/register-node.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "7.3.4",

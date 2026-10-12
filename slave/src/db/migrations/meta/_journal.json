@@ -15,6 +15,20 @@
       "when": 1791773318867,
       "tag": "0001_parched_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791781427963,
+      "tag": "0002_dazzling_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791791252128,
+      "tag": "0003_lazy_sunset_bain",
+      "breakpoints": true
     }
   ]
 }
