@@ -1,0 +1,34 @@
+name: cloudinside-waf
+services:
+  nats:
+    image: nats:2.11.8-alpine@sha256:71092f77d707a4a81b12aca5096d6b2d2e07ad16aa57c84066940a17af74f61a
+    command: ["-js", "-sd", "/data"]
+    ports: ["127.0.0.1:14222:4222"]
+    volumes: ["nats-data:/data"]
+  redis:
+    image: redis:8.2.2-alpine@sha256:59b6e694653476de2c992937ebe1c64182af4728e54bb49e9b7a6c26614d8933
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:16379:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  postgres:
+    image: postgres:17.6-alpine@sha256:ef257d85f76e48da1c64832459b59fcaba1a4dac97bf5d7450c77753542eee94
+    environment:
+      POSTGRES_USER: waf
+      POSTGRES_DB: waf
+      POSTGRES_PASSWORD: ${WAF_DB_PASSWORD:?Run scripts/local-env.sh first}
+    ports: ["127.0.0.1:15432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waf -d waf"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+volumes:
+  postgres-data:
+  nats-data:
+  redis-data:

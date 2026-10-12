@@ -1,0 +1,89 @@
+# Exact HTTP/Coraza expectations, not ignored or forced-pass tests.
+# First ten adaptations follow Coraza v3.8.1 testing/coreruleset/.ftw-overrides.yml.
+# The remaining adaptations were verified against Go 1.26.9's HTTP parser and
+# the pinned Albedo fixture; the unmodified upstream run is retained separately.
+version: "v0.0.0"
+meta:
+  engine: coraza
+  platform: go
+test_overrides:
+  - rule_id: 920100
+    test_ids: [8]
+    reason: "Go accepts a colon in a path segment, which is legal in an RFC 3986 path."
+    output:
+      status: 200
+      log:
+        no_expect_ids: [920100]
+  - rule_id: 920270
+    test_ids: [4]
+    reason: "Coraza detects the invalid character; Apache additionally returns 400."
+    output:
+      log:
+        expect_ids: [920270]
+  - rule_id: 920274
+    test_ids: [1]
+    reason: "Coraza detects the invalid Host character in detection mode."
+    output:
+      log:
+        expect_ids: [920274]
+  - rule_id: 920290
+    test_ids: [1, 4]
+    reason: "Go represents the empty Host as missing; Coraza logs the missing-Host rule."
+    output:
+      log:
+        expect_ids: [920280]
+  - rule_id: 920430
+    test_ids: [8]
+    reason: "Go rejects textual HTTP/3.0 before the WAF, returning 505."
+    output:
+      status: 505
+      log:
+        no_expect_ids: [920430]
+  - rule_id: 920620
+    test_ids: [1]
+    reason: "Go preserves separate Content-Type headers, so Coraza detects duplicates."
+    output:
+      log:
+        expect_ids: [920620]
+  - rule_id: 922130
+    test_ids: [1, 2, 7]
+    reason: "Coraza's multipart parser detects strict errors before CRS rule 922130."
+    output:
+      log:
+        expect_ids: [200003]
+  - rule_id: 920100
+    test_ids: [4, 5]
+    reason: "The Albedo Go fixture has no CONNECT handler; it returns 404, not Apache's 200/400."
+    output:
+      status: 404
+      log:
+        no_expect_ids: [920100]
+  - rule_id: 920280
+    test_ids: [3]
+    reason: "Go rejects HTTP/0.9 before invoking the WAF with 505, rather than Apache's 400."
+    output:
+      status: 505
+      log:
+        no_expect_ids: [920280]
+  - rule_id: 920430
+    test_ids: [3, 9]
+    reason: "Go rejects HTTP/0.9 and HTTP/0.8 before invoking the WAF with 505."
+    output:
+      status: 505
+      log:
+        no_expect_ids: [920430]
+  - rule_id: 920430
+    test_ids: [5]
+    reason: "Go rejects the versionless request with HTTP 400 before invoking Coraza; it does not produce Apache's premature EOF."
+    output:
+      status: 400
+      expect_error: false
+      log:
+        no_expect_ids: [920430]
+  - rule_id: 920610
+    test_ids: [2]
+    reason: "Go parses a raw # as a path character and the reference connector escapes it; Albedo returns 200 without a fragment match."
+    output:
+      status: 200
+      log:
+        no_expect_ids: [920610]

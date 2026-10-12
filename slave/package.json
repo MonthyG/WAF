@@ -1,0 +1,35 @@
+{
+  "name": "@cloudinside/waf-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "openapi": "tsx src/openapi.ts"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "7.3.4",
+    "acme-client": "5.4.0",
+    "bullmq": "6.3.12",
+    "drizzle-orm": "0.45.4",
+    "express": "5.3.0",
+    "ioredis": "6.0.0",
+    "nats": "2.29.3",
+    "postgres": "3.4.9",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6",
+    "@types/node": "26.6.5",
+    "@types/supertest": "7.2.1",
+    "drizzle-kit": "0.31.11",
+    "supertest": "7.3.1",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.3"
+  }
+}

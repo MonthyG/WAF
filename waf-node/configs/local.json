@@ -1,0 +1,11 @@
+{
+  "site_id": "local-site",
+  "hostname": "shop.localhost",
+  "origin": "http://127.0.0.1:9080",
+  "listen": "127.0.0.1:8080",
+  "management_listen": "127.0.0.1:9090",
+  "mode": "detect",
+  "paranoia_level": 1,
+  "request_body_limit": 1048576,
+  "inspect_response_body": false
+}

@@ -1,0 +1,10 @@
+.local/
+waf-node/bin/
+waf-node/reports/
+*.log
+*.test
+node_modules/
+slave/dist/
+.env
+.env.*
+!.env.example

@@ -1,0 +1,20 @@
+{
+  "name": "cloudinside-waf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "slave"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "npm run build --workspace slave",
+    "typecheck": "npm run typecheck --workspace slave",
+    "test": "npm run test --workspace slave",
+    "dev:api": "npm run dev --workspace slave",
+    "db:migrate": "npm run db:migrate --workspace slave",
+    "openapi": "npm run openapi --workspace slave"
+  }
+}
