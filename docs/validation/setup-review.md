@@ -1,0 +1,17 @@
+# Review of the supplied Ubuntu terminal session
+
+Reviewed in order; the raw session is not committed because terminal output can contain private configuration.
+
+1. Git commands initially ran outside the checkout. Run repository commands from the WAF directory. The later delete/re-clone removed local settings but did not remove Docker volumes.
+2. Node 18 produced `EBADENGINE`. Node 24 activation and reinstall succeeded later. The repository now includes `.nvmrc`, strict npm engine checking, and an early setup guard. Dependency deprecation warnings were separate from the failures.
+3. Docker was installed through Snap. `docker.service` and the initial group did not exist. After group creation, the socket still belonged to `root:root`; normal-user Docker access remained unresolved in the supplied log. Running subsequent commands as root bypassed socket permissions but did not fix the installation. The recovery guide distinguishes Snap and systemd and avoids running npm as root.
+4. Compose partially started: ClickHouse could not bind port 18123. The revised configuration makes service ports configurable; new installations choose available ports and matching URLs. Existing installations retain their settings.
+5. PostgreSQL was healthy according to `pg_isready` but returned SQLSTATE `28P01` during migration. This is a reachable database rejecting credentials, not a missing PostgreSQL executable. A retained volume with regenerated local credentials is consistent with the preceding re-clone. The new doctor/startup commands perform authenticated queries, not only a health check.
+6. Go tests passed in the supplied log. Backend tests did not demonstrate successful application behavior: eight were skipped after setup failed, while three others failed with database errors. Cleanup attempted to drop databases even after creation failed, obscuring the initial failure; cleanup now only drops databases actually created by the fixture.
+7. Repeating migration/tests with the same mismatched password cannot resolve the prerequisite. The new root test command stops before starting fixtures when database authentication fails.
+
+Recovery choices: restore the matching private settings backup to retain the old installation, or explicitly use `npm run local:fresh` for an empty separate installation that preserves previous settings and volumes. Neither option silently deletes databases or fixes a lost encryption key. Docker access must be repaired first.
+
+Validation of the revisions: see `platforms.json`. An initial Debian ACME/lifecycle validation was interrupted during heavy matrix image builds; the lifecycle failure explicitly reported PostgreSQL `53100` (no disk space), and the parallel ACME check timed out. Build artifacts were cleaned and affected checks rerun sequentially; the final result is recorded separately. AlmaLinux package-repository access was denied by the cloud proxy, so cached-dependency runtime/source-build validation is distinguished from a clean `dnf` installation.
+
+The AlmaLinux combined suite also exposed a timing-sensitive renewal test: certificate validity can precede completion of the initial issuance job, while the renewal scheduler correctly deduplicates pending jobs. The test now waits for that job to finish before requesting immediate renewal, preserving all certificate/HTTPS assertions. The isolated pre-fix ACME rerun passed; the final combined suite is rerun with this synchronization.

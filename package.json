@@ -13,16 +13,20 @@
   "scripts": {
     "build": "npm run build --workspace slave && npm run build --workspace console",
     "typecheck": "npm run typecheck --workspace slave && npm run typecheck --workspace console",
-    "test": "npm run test --workspace slave",
+    "test": "bash scripts/local.sh test npm run test --workspace slave",
     "dev:api": "npm run dev --workspace slave",
-    "db:migrate": "npm run db:migrate --workspace slave",
+    "db:migrate": "bash scripts/local.sh db-check && bash scripts/local.sh exec npm run db:migrate --workspace slave",
     "openapi": "npm run openapi --workspace slave",
     "worker": "npm run worker --workspace slave",
     "node:register": "npm run node:register --workspace slave --",
     "dev:console": "npm run dev --workspace console",
-    "test:console": "npm run test:e2e --workspace console",
+    "test:console": "bash scripts/local.sh test npm run test:e2e --workspace console",
     "ingest": "npm run ingest --workspace slave",
-    "meter": "npm run meter --workspace slave --"
+    "meter": "npm run meter --workspace slave --",
+    "local:up": "bash scripts/local.sh up",
+    "doctor": "bash scripts/local.sh doctor",
+    "local:fresh": "bash scripts/local-fresh.sh",
+    "local:stop": "bash scripts/local.sh stop"
   },
   "devDependencies": {
     "prettier": "3.9.10"

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname -- "${BASH_SOURCE[0]}")/env.sh"
+source "$WAF_ROOT/scripts/lib/check-runtime.sh"
+for dependency in curl python3 make tar sha256sum git; do
+  command -v "$dependency" >/dev/null || { echo "Missing $dependency; see docs/local-development.md" >&2; exit 1; }
+done
 version=1.26.9
 sha=42d158b4d8f7b61ac0a830567c940a86098fb7aac52e467a5ebec03ef5cc2f8d
 if [[ "$(uname -s)/$(uname -m)" != Linux/x86_64 ]]; then
@@ -26,5 +30,7 @@ go build -mod=readonly -o bin/waf-proxy ./cmd/waf-proxy
 go build -mod=readonly -o bin/waf-origin ./cmd/waf-origin
 go build -mod=readonly -o bin/waf-lint ./cmd/waf-lint
 go build -mod=readonly -o bin/waf-agent ./cmd/waf-agent
-go install github.com/tsenart/vegeta/v12@v12.13.0
+if [[ "${WAF_INSTALL_BENCHMARK_TOOLS:-0}" == 1 ]]; then
+  go install github.com/tsenart/vegeta/v12@v12.13.0
+fi
 ./bin/waf-proxy -config configs/local.json -check

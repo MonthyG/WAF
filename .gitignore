@@ -14,3 +14,6 @@ console/test-results/
 console/playwright-report/
 *.pem
 *.key
+
+__pycache__/
+*.pyc

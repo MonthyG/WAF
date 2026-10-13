@@ -1,0 +1,88 @@
+{
+  "recorded_at": "2026-10-13T17:35:42.111219+00:00",
+  "source_base_commit": "ea8b939cde92f44f62910e4d8791bf346dca60ac",
+  "tested_worktree_changes": true,
+  "node": "24.19.0",
+  "go": "1.26.9",
+  "environment": "Linux containers sharing the cloud host kernel",
+  "platforms": [
+    {
+      "os": "Ubuntu 24.04",
+      "image": "ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55",
+      "architecture": "x86_64",
+      "source_build": "passed",
+      "go_tests": "passed",
+      "typescript_check": "passed",
+      "api_and_console_build": "passed",
+      "http_smoke": {
+        "benign": 200,
+        "xss": 403
+      },
+      "backend_integration": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "package_install": "passed",
+      "dependency_source": "fresh signed distro packages, checksum-verified Go, npm lockfile"
+    },
+    {
+      "os": "Debian 12",
+      "image": "debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587",
+      "architecture": "x86_64",
+      "source_build": "passed",
+      "go_tests": "passed",
+      "typescript_check": "passed",
+      "api_and_console_build": "passed",
+      "http_smoke": {
+        "benign": 200,
+        "xss": 403
+      },
+      "backend_integration": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "package_install": "passed",
+      "dependency_source": "fresh signed distro packages, checksum-verified Go, npm lockfile"
+    },
+    {
+      "os": "AlmaLinux 9",
+      "image": "almalinux:9@sha256:9819dc675b67b595c2b59e42be7763fca1a8bb217fa5944e04daa22e9a64db16",
+      "architecture": "x86_64",
+      "source_build": "passed",
+      "go_tests": "passed",
+      "typescript_check": "passed",
+      "api_and_console_build": "passed",
+      "http_smoke": {
+        "benign": 200,
+        "xss": 403
+      },
+      "backend_integration": {
+        "passed": 11,
+        "failed": 0,
+        "skipped": 0
+      },
+      "package_install": "blocked_by_cloud_proxy",
+      "dependency_source": "verified cache from Debian build; rebuilt on AlmaLinux with CGO_ENABLED=0"
+    }
+  ],
+  "local_setup": {
+    "unit_tests_passed": 5,
+    "isolated_docker_lifecycle": "passed",
+    "repeat_startup_preserves_credentials": true,
+    "wrong_password_prevents_test_runner": true,
+    "browser_e2e_passed": 1
+  },
+  "limitations": [
+    "Native VM/systemd, Docker Snap and enforcing SELinux installation not validated",
+    "AlmaLinux clean dnf installation blocked by network policy; official repository domains added to environment draft",
+    "Windows, macOS and ARM64 not natively validated",
+    "GitHub Actions workflow added; remote run result not yet checked",
+    "No production readiness or public CA validation claimed"
+  ],
+  "resolved_validation_failures": [
+    "Matrix builds caused transient disk exhaustion; affected lifecycle/Debian checks passed after cleaning test build artifacts and rerunning sequentially",
+    "Immediate ACME renewal test now waits for initial issuance job completion; final AlmaLinux combined suite passed"
+  ]
+}

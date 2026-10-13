@@ -58,6 +58,7 @@ async function port() {
 it('ingests real edge traffic exactly once, isolates tenants, excludes events, and exports metering with 30-day TTL', async () => {
   const base = process.env.DATABASE_URL;
   if (!base) throw new Error('DATABASE_URL required');
+  let databaseCreated = false;
   const admin = connect(base),
     dbName = 'waf_analytics_' + randomBytes(8).toString('hex');
   const temp = await mkdtemp(resolve(tmpdir(), 'waf-analytics-'));
@@ -139,6 +140,7 @@ it('ingests real edge traffic exactly once, isolates tenants, excludes events, a
       [],
     );
     await admin.db.execute(sql`CREATE DATABASE ${sql.identifier(dbName)}`);
+    databaseCreated = true;
     const url = new URL(base);
     url.pathname = '/' + dbName;
     await migrateDatabase(url.toString());
@@ -383,7 +385,8 @@ it('ingests real edge traffic exactly once, isolates tenants, excludes events, a
       try {
         execFileSync('docker', ['stop', '-t', '1', id], { stdio: 'ignore' });
       } catch {}
-    await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
+    if (databaseCreated)
+      await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
     await admin.close();
     await rm(temp, { recursive: true, force: true });
   }

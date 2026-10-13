@@ -8,18 +8,15 @@ Still pending: billing-system integration, geo/rate-limit enforcement, dedicated
 
 ## Development setup
 
-Requires Linux x86-64, Node.js 24/npm, Docker with Compose, Make, Python 3, curl, and OpenSSL. Run from the repository root:
+Primary targets: Ubuntu 24.04, AlmaLinux 9, and Debian 12 (x86-64). See [OS installation and recovery](docs/local-development.md) for prerequisites, Docker Snap, occupied ports, and database-password recovery. Node.js 24 and Docker Compose v2 are required. Run from the repository root as your normal user:
 
 ```bash
 bash scripts/setup.sh
 source scripts/env.sh
 npm ci
 bash scripts/local-env.sh
-docker compose --env-file .local/dev.env up -d --wait
-set -a
-source .local/dev.env
-set +a
-npm run db:migrate
+npm run local:up
+npm run doctor
 make build test
 npm run typecheck
 npm run build
@@ -27,6 +24,8 @@ npm test
 # Browser workflow test (Chromium required):
 npm run test:console
 ```
+
+Stop at any failed command. Do not delete/re-clone the checkout or remove database volumes to fix an authentication error. `npm run local:fresh` creates a separate empty installation while preserving old settings and data; see the recovery guide first.
 
 The setup script installs checksum-verified Go 1.26.9 into `.local/toolchains`. If the Go module proxy cannot deliver `github.com/klauspost/compress@v1.18.0`, run `GOPROXY=direct go mod download github.com/klauspost/compress@v1.18.0` from `waf-node` after sourcing `scripts/env.sh`, then retry setup; keep checksum verification enabled.
 
@@ -57,7 +56,7 @@ For a self-contained browser validation without real Keystone, `npm run test:con
 
 See [analytics operations](docs/analytics-operations.md) for agent reporting, retention, queries, usage export, and collection limits. Validate public DNS/TLS and the complete customer workflow in your staging cloud before production deployment.
 
-Previous distribution acceptance results are recorded in [distribution.json](docs/validation/distribution.json); they are measurements of one development run, not production guarantees. Additional checks: `make race`, `make vet`, `make ftw`, `make ftw-platform`, and `make benchmark`. The original FTW suite has known HTTP-parser expectation differences; platform overrides are documented in `waf-node/ftw/platform-overrides.yaml` and the original suite retains failures.
+Previous distribution acceptance results are recorded in [distribution.json](docs/validation/distribution.json); they are measurements of one development run, not production guarantees. Install the optional benchmark tool with `WAF_INSTALL_BENCHMARK_TOOLS=1 bash scripts/setup.sh` before benchmarking. Additional checks: `make race`, `make vet`, `make ftw`, `make ftw-platform`, and `make benchmark`. The original FTW suite has known HTTP-parser expectation differences; platform overrides are documented in `waf-node/ftw/platform-overrides.yaml` and the original suite retains failures.
 
 API contract: [OpenAPI](docs/openapi.json). Main code: `slave/src` (control plane), `waf-node` (data plane). No production deployment or Keystone endpoint registration has been performed. Browser/ACME results are retained under `docs/validation`.
 

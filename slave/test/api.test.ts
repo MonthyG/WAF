@@ -31,6 +31,7 @@ describe('PostgreSQL + Keystone HTTP integration', () => {
   let admin: ReturnType<typeof connect>;
   let app: ReturnType<typeof createApp>;
   let dbName: string;
+  let databaseCreated = false;
   let identityCalls = 0;
   let certDir: string;
   const origin = { address: '203.0.113.10', port: 8080, scheme: 'http' };
@@ -68,6 +69,7 @@ describe('PostgreSQL + Keystone HTTP integration', () => {
     admin = connect(base);
     dbName = 'waf_test_' + randomBytes(8).toString('hex');
     await admin.db.execute(sql`CREATE DATABASE ${sql.identifier(dbName)}`);
+    databaseCreated = true;
     const url = new URL(base);
     url.pathname = '/' + dbName;
     await migrateDatabase(url.toString());
@@ -137,7 +139,7 @@ describe('PostgreSQL + Keystone HTTP integration', () => {
     if (identity) await new Promise<void>((r, j) => identity.close((e) => (e ? j(e) : r())));
     if (conn) await conn.close();
     if (admin) {
-      if (dbName) await admin.db.execute(sql`DROP DATABASE ${sql.identifier(dbName)}`);
+      if (databaseCreated) await admin.db.execute(sql`DROP DATABASE ${sql.identifier(dbName)}`);
       await admin.close();
     }
     if (certDir) await rm(certDir, { recursive: true });

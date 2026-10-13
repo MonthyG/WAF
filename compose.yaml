@@ -1,4 +1,4 @@
-name: cloudinside-waf
+name: ${COMPOSE_PROJECT_NAME:-cloudinside-waf}
 services:
   clickhouse:
     image: clickhouse/clickhouse-server:25.8@sha256:0152dd511befe6a2c2ef53e930726179669b08116da78500b37c51c96ff5ee77
@@ -7,7 +7,7 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run scripts/local-env.sh first}
       CLICKHOUSE_DB: waf
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'
-    ports: ['127.0.0.1:18123:8123']
+    ports: ['127.0.0.1:${WAF_CLICKHOUSE_PORT:-18123}:8123']
     volumes: ['clickhouse-data:/var/lib/clickhouse']
     healthcheck:
       test: ['CMD', 'wget', '--quiet', '--spider', 'http://127.0.0.1:8123/ping']
@@ -17,12 +17,12 @@ services:
   nats:
     image: nats:2.11.8-alpine@sha256:71092f77d707a4a81b12aca5096d6b2d2e07ad16aa57c84066940a17af74f61a
     command: ['-js', '-sd', '/data']
-    ports: ['127.0.0.1:14222:4222']
+    ports: ['127.0.0.1:${WAF_NATS_PORT:-14222}:4222']
     volumes: ['nats-data:/data']
   redis:
     image: redis:8.2.2-alpine@sha256:59b6e694653476de2c992937ebe1c64182af4728e54bb49e9b7a6c26614d8933
     command: ['redis-server', '--appendonly', 'yes']
-    ports: ['127.0.0.1:16379:6379']
+    ports: ['127.0.0.1:${WAF_REDIS_PORT:-16379}:6379']
     volumes: ['redis-data:/data']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
@@ -35,7 +35,7 @@ services:
       POSTGRES_USER: waf
       POSTGRES_DB: waf
       POSTGRES_PASSWORD: ${WAF_DB_PASSWORD:?Run scripts/local-env.sh first}
-    ports: ['127.0.0.1:15432:5432']
+    ports: ['127.0.0.1:${WAF_POSTGRES_PORT:-15432}:5432']
     volumes: ['postgres-data:/var/lib/postgresql/data']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U waf -d waf']

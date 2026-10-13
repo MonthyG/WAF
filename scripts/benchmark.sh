@@ -14,7 +14,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-[[ -x bin/vegeta ]] || { echo 'Run make setup first.' >&2; exit 1; }
+[[ -x bin/vegeta ]] || { echo 'Run WAF_INSTALL_BENCHMARK_TOOLS=1 bash scripts/setup.sh first.' >&2; exit 1; }
 # Dedicated test ports avoid disturbing an already-running development proxy.
 GOMAXPROCS=1 ./bin/waf-origin -listen 127.0.0.1:19080 > "$run_dir/origin.log" 2>&1 & origin_pid=$!
 for attempt in {1..50}; do

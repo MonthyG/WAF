@@ -63,6 +63,7 @@ it('publishes valid revisions to two agents, retains good config, reloads withou
   const base = process.env.DATABASE_URL;
   if (!base) throw new Error('DATABASE_URL required');
   const dbName = 'waf_dist_' + randomBytes(8).toString('hex');
+  let databaseCreated = false;
   const admin = connect(base);
   let db: ReturnType<typeof connect> | undefined;
   let worker: Awaited<ReturnType<typeof startWorker>> | undefined;
@@ -87,6 +88,7 @@ it('publishes valid revisions to two agents, retains good config, reloads withou
   });
   try {
     await admin.db.execute(sql`CREATE DATABASE ${sql.identifier(dbName)}`);
+    databaseCreated = true;
     const databaseURL = new URL(base);
     databaseURL.pathname = '/' + dbName;
     await migrateDatabase(databaseURL.toString());
@@ -489,7 +491,8 @@ it('publishes valid revisions to two agents, retains good config, reloads withou
       try {
         execFileSync('docker', ['stop', '-t', '1', id], { stdio: 'ignore' });
       } catch {}
-    await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
+    if (databaseCreated)
+      await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
     await admin.close();
     await mkdir('../.local', { recursive: true });
     await writeFile('../.local/distribution-test.log', logs);

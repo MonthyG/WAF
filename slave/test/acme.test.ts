@@ -45,6 +45,7 @@ async function port() {
 it('issues and renews through Pebble with real HTTP-01 validation and trusted HTTPS', async () => {
   const base = process.env.DATABASE_URL;
   if (!base) throw new Error('DATABASE_URL required');
+  let databaseCreated = false;
   const admin = connect(base),
     dbName = 'waf_acme_' + randomBytes(8).toString('hex');
   const temp = await mkdtemp(resolve(tmpdir(), 'waf-acme-'));
@@ -179,6 +180,7 @@ it('issues and renews through Pebble with real HTTP-01 validation and trusted HT
       (status) => status === 200,
     );
     await admin.db.execute(sql`CREATE DATABASE ${sql.identifier(dbName)}`);
+    databaseCreated = true;
     const url = new URL(base);
     url.pathname = '/' + dbName;
     await migrateDatabase(url.toString());
@@ -298,6 +300,13 @@ it('issues and renews through Pebble with real HTTP-01 validation and trusted HT
       masterKey,
       region: 'local-1',
     });
+    // The certificate becomes valid before its issuance job finishes cleanup.
+    // Renewal intentionally deduplicates pending jobs; wait for that completion
+    // rather than racing it and waiting an hour for the next scheduled sweep.
+    await waitFor(
+      () => db!.db.select().from(s.jobs).where(eq(s.jobs.kind, 'cert.issue')),
+      (jobs) => jobs.length > 0 && jobs.every((job) => job.status === 'done'),
+    );
     await issuer.scheduleRenewals();
     const renewed = await waitFor(
       certificate,
@@ -356,7 +365,8 @@ it('issues and renews through Pebble with real HTTP-01 validation and trusted HT
       } catch {}
     }
     if (db) await db.close();
-    await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
+    if (databaseCreated)
+      await admin.db.execute(sql`DROP DATABASE IF EXISTS ${sql.identifier(dbName)}`);
     await admin.close();
     acme.axios.defaults.httpAgent = oldHTTP;
     acme.axios.defaults.httpsAgent = oldHTTPS;

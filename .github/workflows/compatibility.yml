@@ -1,0 +1,31 @@
+name: Linux compatibility
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            image: ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+          - name: almalinux-9
+            image: almalinux:9@sha256:9819dc675b67b595c2b59e42be7763fca1a8bb217fa5944e04daa22e9a64db16
+          - name: debian-12
+            image: debian:12-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build, typecheck and run Go tests in the target userspace
+        env:
+          WAF_DISTRO_IMAGE: ${{ matrix.image }}
+        run: docker build --build-arg "DISTRO=$WAF_DISTRO_IMAGE" -f scripts/compat/Dockerfile -t waf-compat .
+      - name: Verify normal traffic and attack blocking
+        run: docker run --rm waf-compat
