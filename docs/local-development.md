@@ -84,7 +84,7 @@ For Chromium browser testing, use a real executable with its runtime dependencie
 CHROMIUM_PATH=/path/to/chromium npm run test:console
 ```
 
-This launches a temporary complete test stack and tests the dashboard; it does not leave a persistent demo login. For interactive proxy testing, use `make dev` and the curl requests in README.md. Real console startup still requires Keystone credentials as documented there.
+This launches a temporary complete test stack and tests the dashboard; it does not leave a persistent demo login. For interactive proxy testing, use `WAF_DEMO_MODE=block make dev` and copy the curl commands it prints. The launcher chooses free loopback ports when defaults are occupied. Explicit `WAF_DEMO_PORT`, `WAF_DEMO_MANAGEMENT_PORT`, and `WAF_DEMO_ORIGIN_PORT` values must be free; it never terminates the process occupying a port. Real console startup still requires Keystone credentials as documented there.
 
 ## 3. Recover from the reported errors
 

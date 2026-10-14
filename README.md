@@ -37,14 +37,17 @@ Local secrets are generated in ignored `.local/dev.env`; keep this file private.
 make dev
 ```
 
-From another terminal:
+The launcher prints **Normal request**, **Attack request**, and **Readiness** commands/addresses. Copy its printed curl commands into another terminal. It prefers ports 8080/9090/9080 and chooses free loopback ports if those are occupied; it never stops another service. Keep the demo terminal open while testing.
+
+The default mode detects attacks: normal requests return 200 and the test attack is logged as detected. To verify blocking instead:
 
 ```bash
-curl -i -H 'Host: shop.localhost' http://127.0.0.1:8080/
-curl -i http://127.0.0.1:9090/readyz
+WAF_DEMO_MODE=block make dev
 ```
 
-Both should return HTTP 200. The demo uses detect mode. Stop it with Ctrl-C. Automated integration tests exercise block mode, tenant isolation, configuration propagation, invalid configuration rejection, and reloads under traffic.
+The printed normal request should return **200**, and the printed attack request should return **403**. Stop with Ctrl-C. To choose a fixed proxy port, use `WAF_DEMO_PORT=18080 WAF_DEMO_MODE=block make dev`; an occupied explicit port produces a clear error. `WAF_DEMO_MANAGEMENT_PORT` and `WAF_DEMO_ORIGIN_PORT` are also available. Each run uses a private temporary configuration and its own local origin; source configuration files remain unchanged. A `WAF_CONFIG` file can supply policy settings, but the demo replaces its network addresses/origins with the local fixture.
+
+Automated integration tests exercise block mode, tenant isolation, configuration propagation, invalid configuration rejection, and reloads under traffic. After building, `python3 scripts/test-demo.py` checks occupied-port recovery, real blocking, shutdown, and early child-process failure.
 
 ## Resume implementation
 
