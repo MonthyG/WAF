@@ -7,6 +7,7 @@ RUN --mount=type=secret,id=trust_bundle \
     if command -v apt-get >/dev/null; then \
       apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl git make gcc libc6-dev python3 openssl tar gzip xz-utils && rm -rf /var/lib/apt/lists/*; \
     else \
+      sed -i -e 's/^mirrorlist=/#mirrorlist=/' -e 's|^# baseurl=https://repo.almalinux.org|baseurl=https://repo.almalinux.org|' /etc/yum.repos.d/almalinux-*.repo && \
       dnf --setopt=sslcacert="${SSL_CERT_FILE:-/etc/pki/tls/certs/ca-bundle.crt}" install -y ca-certificates curl-minimal git make gcc glibc-devel python3 openssl tar gzip xz && dnf clean all; \
     fi
 COPY --from=node /usr/local/ /usr/local/

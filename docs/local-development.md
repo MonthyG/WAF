@@ -131,7 +131,7 @@ docker build -f scripts/compat/Dockerfile --build-arg DISTRO=ubuntu:24.04 -t waf
 docker run --rm waf-compat-ubuntu
 ```
 
-Use `almalinux:9` or `debian:12-slim` for the other distributions. The checked-in defaults pin image digests; mutable tags in the example intentionally test current distro images. See `docs/validation/platforms.json` for actual results and limits. Containers share the host kernel: these checks do not prove native VM installation, systemd, Snap, SELinux, ARM64, public TLS, or production readiness. `python3 scripts/test-local-setup.py` covers credential preservation, safe fresh starts, occupied-port selection, and rejection of Node 18.
+Use `almalinux:9` or `debian:12-slim` for the other distributions. The AlmaLinux test image uses the vendor-provided official HTTPS base URLs instead of selecting third-party mirrors, retaining RPM signature verification. This change affects the test container only, not your host repository configuration. The checked-in defaults pin image digests; mutable tags in the example intentionally test current distro images. See `docs/validation/platforms.json` for actual results and limits. Containers share the host kernel: these checks do not prove native VM installation, systemd, Snap, SELinux, ARM64, public TLS, or production readiness. `python3 scripts/test-local-setup.py` covers credential preservation, safe fresh starts, occupied-port selection, and rejection of Node 18.
 
 AlmaLinux runtime validation can also reuse the verified Go/npm dependencies from the Debian test image when distro package mirrors are unavailable:
 

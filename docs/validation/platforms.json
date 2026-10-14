@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-13T17:35:42.111219+00:00",
+  "recorded_at": "2026-10-14T04:59:04.239496+00:00",
   "source_base_commit": "ea8b939cde92f44f62910e4d8791bf346dca60ac",
   "tested_worktree_changes": true,
   "node": "24.19.0",
@@ -63,8 +63,10 @@
         "failed": 0,
         "skipped": 0
       },
-      "package_install": "blocked_by_cloud_proxy",
-      "dependency_source": "verified cache from Debian build; rebuilt on AlmaLinux with CGO_ENABLED=0"
+      "package_install": "passed",
+      "dependency_source": "fresh signed RPMs from official HTTPS repo.almalinux.org, checksum-verified Go, npm lockfile; native build with GCC installed",
+      "validated_at": "2026-10-14T04:59:04.239496+00:00",
+      "validation_base_commit": "8399344a0b11f8d193a4f1a3a372ab5fad21c739"
     }
   ],
   "local_setup": {
@@ -76,13 +78,13 @@
   },
   "limitations": [
     "Native VM/systemd, Docker Snap and enforcing SELinux installation not validated",
-    "AlmaLinux clean dnf installation blocked by network policy; official repository domains added to environment draft",
     "Windows, macOS and ARM64 not natively validated",
-    "GitHub Actions workflow added; remote run result not yet checked",
+    "GitHub Actions API returned Forbidden; remote workflow results remain unverified",
     "No production readiness or public CA validation claimed"
   ],
   "resolved_validation_failures": [
     "Matrix builds caused transient disk exhaustion; affected lifecycle/Debian checks passed after cleaning test build artifacts and rerunning sequentially",
-    "Immediate ACME renewal test now waits for initial issuance job completion; final AlmaLinux combined suite passed"
+    "Immediate ACME renewal test now waits for initial issuance job completion; final AlmaLinux combined suite passed",
+    "AlmaLinux clean-install gap closed: official HTTPS base URLs replace blocked third-party mirror selection; signed package installation, fresh build, Go tests, HTTP smoke and all 11 backend tests passed"
   ]
 }
